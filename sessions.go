@@ -1,17 +1,22 @@
 package sessions
 
 import (
-	"log"
-	"net/http"
-
+	"errors"
 	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/engine/standard"
+	"log"
+	"net/http"
 )
 
 const (
 	DefaultKey  = "echo-sessions"
 	errorFormat = "[sessions] ERROR! %s\n"
+)
+
+var (
+	ErrDefaultSessionMiddlewareNotRegistered = errors.New("Default session middleware not registered!")
 )
 
 type Store interface {
@@ -57,12 +62,15 @@ type Session interface {
 	Save() error
 }
 
-func Sessions(name string, store Store) echo.HandlerFunc {
-	return func(c *echo.Context) error {
-		s := &session{name, c.Request(), store, nil, false, c.Response()}
-		c.Set(DefaultKey, s)
-		defer context.Clear(c.Request())
-		return nil
+func Sessions(name string, store Store) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			request := c.Request().(*standard.Request).Request
+			s := &session{name, request, store, nil, false, c.Response().(*standard.Response).ResponseWriter}
+			c.Set(DefaultKey, s)
+			defer context.Clear(request)
+			return next(c)
+		}
 	}
 }
 
@@ -144,6 +152,10 @@ func (s *session) Written() bool {
 }
 
 // shortcut to get session
-func Default(c *echo.Context) Session {
-	return c.Get(DefaultKey).(Session)
+func Default(c echo.Context) Session {
+	ses, ok := c.Get(DefaultKey).(Session)
+	if !ok {
+		c.Error(ErrDefaultSessionMiddlewareNotRegistered)
+	}
+	return ses
 }
