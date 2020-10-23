@@ -2,12 +2,12 @@ package sessions
 
 import (
 	"errors"
-	"github.com/gorilla/context"
-	"github.com/gorilla/sessions"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/engine/standard"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/context"
+	"github.com/gorilla/sessions"
+	"github.com/labstack/echo/v4"
 )
 
 const (
@@ -65,8 +65,8 @@ type Session interface {
 func Sessions(name string, store Store) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			request := c.Request().(*standard.Request).Request
-			s := &session{name, request, store, nil, false, c.Response().(*standard.Response).ResponseWriter}
+			request := c.Request()
+			s := &session{name, request, store, nil, false, c.Response().Writer}
 			c.Set(DefaultKey, s)
 			defer context.Clear(request)
 			return next(c)
